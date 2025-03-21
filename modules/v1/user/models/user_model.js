@@ -901,6 +901,33 @@ class userModel{
             }
         }
         
+        async logout(request_data, user_id, callback){
+            try{
+
+                const [result] = await database.query("SELECT * FROM tbl_user WHERE user_id = ? and is_login = 1", [user_id]);
+                if(result.length === 0){
+                    return callback(common.encrypt({
+                        code: response_code.NOT_FOUND,
+                        message: t('no_user_found')
+                    }));
+                }
+
+                const updateQuery = "UPDATE tbl_user SET user_token = NULL, is_login = 0 WHERE user_id = ?";
+                await database.query(updateQuery, [user_id]);
+        
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('logout_success')
+                }));
+        
+            } catch(error){
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }));
+            }
+        }
 
 }
 

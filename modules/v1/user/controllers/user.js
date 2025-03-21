@@ -120,6 +120,16 @@ class User{
             common.response(res, _response_data);
         });
     }
+
+    async logout(req,res){
+        const requested_data = req.body;
+        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const user_id = req.user_id;
+
+        userModel.logout(request_data, user_id, (_response_data)=>{
+            common.response(res, _response_data);
+        });
+    }
 }
 
 
