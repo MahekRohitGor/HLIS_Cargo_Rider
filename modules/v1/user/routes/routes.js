@@ -12,6 +12,7 @@ const user = (app) =>{
         app.post("/v1/user/cancel-order", users.cancel_order);
         app.post("/v1/user/contact-us", users.contact_us);
         app.post("/v1/user/list-order", users.list_user_orders);
+        app.post("/v1/user/change-password", users.change_password);
 }
 
 module.exports = user;
