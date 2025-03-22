@@ -447,18 +447,18 @@ class userModel{
                     MIN(p.pod_fee) AS pod_fee,
                     COUNT(v.vehicle_id) AS available_count,
                     MIN(va.latitude) AS vehicle_latitude,
-                MIN(va.longitude) AS vehicle_longitude
-                FROM tbl_vehicle_type vt
-                LEFT JOIN tbl_vehicle v ON vt.vehicle_type_id = v.vehicle_type_id
-                LEFT JOIN tbl_vehicle_availability va ON v.vehicle_id = va.vehicle_id
-                LEFT JOIN tbl_pricing p ON vt.vehicle_type_id = p.vehicle_type_id
-                WHERE vt.is_active = 1 
-                AND vt.is_deleted = 0
-                AND v.is_active = 1
-                AND v.is_deleted = 0
-                AND va.is_available = 1
-                GROUP BY vt.vehicle_type_id, vt.vehicle_type_name
-                HAVING available_count > 0
+                    MIN(va.longitude) AS vehicle_longitude
+                    FROM tbl_vehicle_type vt
+                    LEFT JOIN tbl_vehicle v ON vt.vehicle_type_id = v.vehicle_type_id
+                    LEFT JOIN tbl_vehicle_availability va ON v.vehicle_id = va.vehicle_id
+                    LEFT JOIN tbl_pricing p ON vt.vehicle_type_id = p.vehicle_type_id
+                    WHERE vt.is_active = 1 
+                    AND vt.is_deleted = 0
+                    AND v.is_active = 1
+                    AND v.is_deleted = 0
+                    AND va.is_available = 1
+                    GROUP BY vt.vehicle_type_id, vt.vehicle_type_name
+                    HAVING available_count > 0
                 `);
         
                 const availableVehicleTypes = vehicle_types.map(vt => {

@@ -94,6 +94,22 @@ class headerAuth{
         }
     }
 
+    async getRequestDriver(token){
+        try{
+            console.log("Getting Admin from token:", token);
+            const selectQuery = `SELECT * FROM tbl_driver WHERE driver_token = ?`;
+            const [owner] = await database.query(selectQuery, [token]);
+            console.log(owner);
+            if(owner.length > 0){
+                return owner[0];
+            }else{
+                throw new Error("Invalid access token");
+            }
+        }catch (error) {
+            throw error;
+        }
+    }
+
     async header(req, res, next) {
         try {
             console.log("here");
@@ -129,13 +145,18 @@ class headerAuth{
 
                     try {
                         var user;
-
-                        // Determine whether request is for 'admin' or 'user'
+                        
                         if (req.requestedModule === 'admin') {
                             user = await headerObj.getRequestAdmin(token);
                             console.log("Admin found:", user);
                             req.user_id = user.id;
-                        } else {
+                        } 
+                        else if(req.requestedModule === 'driver'){
+                            user = await headerObj.getRequestDriver(token);
+                            console.log("Driver found:", user);
+                            req.user_id = user.driver_id;
+                        }
+                        else {
                             user = await headerObj.getRequestOwner(token);
                             console.log("User found:", user);
                             req.user_id = user.user_id;
