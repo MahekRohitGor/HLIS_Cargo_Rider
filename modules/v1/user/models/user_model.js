@@ -929,6 +929,160 @@ class userModel{
             }
         }
 
+        async add_review(request_data, user_id, callback) {
+            try {
+                if (!request_data.order_id || !request_data.rating || !request_data.review) {
+                    return callback(common.encrypt({
+                        code: response_code.INVALID_REQUEST,
+                        message: t('missing_required_fields')
+                    }));
+                }
+        
+                const rating = parseInt(request_data.rating, 10);
+                if (rating < 1 || rating > 5) {
+                    return callback(common.encrypt({
+                        code: response_code.INVALID_REQUEST,
+                        message: t('invalid_rating')
+                    }));
+                }
+        
+                const orderQuery = `SELECT * FROM tbl_delivery_order WHERE order_id = ? AND user_id = ?`;
+                const [orderResult] = await database.query(orderQuery, [request_data.order_id, user_id]);
+        
+                if (!orderResult || orderResult.length === 0) {
+                    return callback(common.encrypt({
+                        code: response_code.NOT_FOUND,
+                        message: t('order_not_found')
+                    }));
+                }
+        
+                const reviewQuery = `SELECT * FROM tbl_review_rating WHERE order_id = ? AND user_id = ?`;
+                const [reviewResult] = await database.query(reviewQuery, [request_data.order_id, user_id]);
+        
+                if (reviewResult.length > 0) {
+                    return callback(common.encrypt({
+                        code: response_code.ALREADY_EXISTS,
+                        message: t('review_already_exists')
+                    }));
+                }
+
+                const findStatus = `SELECT status FROM tbl_delivery_order WHERE order_id = ?`;
+                const [statusResult] = await database.query(findStatus, [request_data.order_id]);
+
+                if(statusResult[0].status != 'completed'){
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('order_is_not completed')
+                    }));
+                }
+        
+                const data = {
+                    user_id: user_id,
+                    order_id: request_data.order_id,
+                    rating: rating,
+                    review: request_data.review
+                };
+        
+                const insertReview = `INSERT INTO tbl_review_rating SET ?`;
+                await database.query(insertReview, [data]);
+        
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('review_added_successfully')
+                }));
+        
+            } catch (error) {
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }));
+            }
+        }
+        
+        async create_report(request_data, user_id, callback) {
+            try {
+                const {
+                    order_id,
+                    subject,
+                    description,
+                    images = []
+                } = request_data;
+        
+                if (!order_id || !subject || !description || !user_id) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('missing_required_fields')
+                    }));
+                }
+        
+                const [order] = await database.query(`
+                    SELECT status, user_id
+                    FROM tbl_delivery_order
+                    WHERE order_id = ?
+                    AND is_canceled = 0
+                `, [order_id]);
+        
+                if (!order || order.length === 0) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('order_not_found')
+                    }));
+                }
+        
+                if (order[0].status !== 'completed') {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('order_not_completed')
+                    }));
+                }
+        
+                if (order[0].user_id !== user_id) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('unauthorized_user')
+                    }));
+                }
+        
+                const [reportResult] = await database.query(`
+                    INSERT INTO tbl_report (
+                        subject,
+                        description,
+                        user_id,
+                        is_active,
+                        is_deleted
+                    ) VALUES (?, ?, ?, 1, 0)
+                `, [subject, description, user_id]);
+        
+                const report_id = reportResult.insertId;
+        
+                if (images.length > 0) {
+                    const imageValues = images.map(image_name => [image_name, report_id]);
+                    await database.query(`
+                        INSERT INTO tbl_image_report (
+                            image_name,
+                            report_id
+                        ) VALUES ?
+                    `, [imageValues]);
+                }
+        
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('report_created_successfully'),
+                    data: {
+                        report_id,
+                        order_id
+                    }
+                }));
+        
+            } catch (error) {
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }));
+            }
+        }
 }
 
 module.exports = new userModel();
