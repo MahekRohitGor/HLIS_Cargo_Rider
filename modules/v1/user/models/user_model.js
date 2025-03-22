@@ -1144,9 +1144,7 @@ class userModel{
                     data: error.message
                 }));
             }
-        }
-
-        
+        }        
 
 }
 
