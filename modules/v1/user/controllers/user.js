@@ -141,12 +141,22 @@ class User{
         });
     }
 
-    async create_report(req,res){
+    async report(req,res){
         const requested_data = req.body;
         const request_data = JSON.parse(common.decryptPlain(requested_data));
         const user_id = req.user_id;
 
-        userModel.create_report(request_data, user_id, (_response_data)=>{
+        userModel.report(request_data, user_id, (_response_data)=>{
+            common.response(res, _response_data);
+        });
+    }
+
+    async history(req,res){
+        const requested_data = req.body;
+        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const user_id = req.user_id;
+
+        userModel.history(request_data, user_id, (_response_data)=>{
             common.response(res, _response_data);
         });
     }

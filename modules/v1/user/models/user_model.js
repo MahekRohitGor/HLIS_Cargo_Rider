@@ -1000,7 +1000,7 @@ class userModel{
             }
         }
         
-        async create_report(request_data, user_id, callback) {
+        async report(request_data, user_id, callback) {
             try {
                 const {
                     order_id,
@@ -1083,6 +1083,71 @@ class userModel{
                 }));
             }
         }
+
+        async history(request_data, user_id, callback) {
+            try {
+                const getOrders = `
+                    SELECT * FROM tbl_delivery_order 
+                    WHERE user_id = ? 
+                    AND (status = 'completed' OR status = 'cancelled')
+                `;
+                const [orders] = await database.query(getOrders, [user_id]);
+        
+                if (orders.length === 0) {
+                    return callback(common.encrypt({
+                        code: response_code.NOT_FOUND,
+                        message: t('no_orders_found')
+                    }));
+                }
+        
+                let order_list = [];
+        
+                for (let order of orders) {
+                    const rec_id = order.rec_id;
+        
+                    const findReceiver = `SELECT * FROM tbl_receiver WHERE rec_id = ?`;
+                    const [receiverData] = await database.query(findReceiver, [rec_id]);
+        
+                    const createdAt = new Date(order.created_at);
+        
+                    const order_date = createdAt.getFullYear() + '-' +
+                        String(createdAt.getMonth() + 1).padStart(2, '0') + '-' +
+                        String(createdAt.getDate()).padStart(2, '0');
+        
+                    let hours = createdAt.getHours();
+                    const minutes = String(createdAt.getMinutes()).padStart(2, '0');
+                    const seconds = String(createdAt.getSeconds()).padStart(2, '0');
+                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                    hours = hours % 12 || 12;
+        
+                    const order_time = `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
+        
+                    order_list.push({
+                        receiver_details: receiverData[0] || null,
+                        order_id: order.order_id,
+                        order_date: order_date,
+                        order_time: order_time,
+                        order_status: order.status
+                    });
+                }
+        
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('orders_fetched_successfully'),
+                    data: order_list
+                }));
+        
+            } catch (error) {
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }));
+            }
+        }
+
+        
+
 }
 
 module.exports = new userModel();
