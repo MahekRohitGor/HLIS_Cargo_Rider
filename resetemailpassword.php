@@ -45,10 +45,6 @@ if(isset($_SESSION["login_sess"]))
 
           }
 
-    
-
-
-
    //form for submit 
     if(isset($_POST['sub_set'])){
        extract($_POST);

@@ -791,7 +791,7 @@ class driverModel{
                     }));
                 }
         
-                const validStatuses = ['confirmed', 'waytopickup', 'waytodropoff', 'delivered'];
+                const validStatuses = ['waytopickup', 'waytodropoff', 'delivered'];
                 if (!validStatuses.includes(delivery_status)) {
                     return callback(common.encrypt({
                         code: response_code.OPERATION_FAILED,
@@ -942,9 +942,9 @@ class driverModel{
                 await database.query(`
                     UPDATE tbl_delivery_order
                     SET delivery_otp = NULL, order_points = ?, 
-                    earnings_rs = ?, updated_at = NOW()
+                    earnings_rs = ?, updated_at = NOW(), status = 'completed'
                     WHERE order_id = ?
-                `, [order_id, earnings_rs, order_id]);
+                `, [order_points, earnings_rs, order_id]);
         
                 return callback(common.encrypt({
                     code: response_code.SUCCESS,
@@ -1005,7 +1005,80 @@ class driverModel{
             }
         }        
         
+        async show_earnings(request_data, driver_id, callback){
+            try{
+                const [driver] = await database.query(`SELECT * FROM tbl_vehicle where driver_id = ?`, [driver_id]);
+                const vehicle_ids = driver.map(vehicle => vehicle.vehicle_id);
+                var query;
 
+                if(request_data.week){
+                    console.log("WEEK");
+                    query = `
+                    SELECT order_id, pickup_address, dropoff_address, earnings_rs
+                    FROM tbl_delivery_order
+                    WHERE vehicle_id IN (?)
+                    AND status = 'completed'
+                    AND delivery_status = 'delivered'
+                    AND updated_at >= NOW() - INTERVAL 7 DAY;
+                `;
+                    
+                } else if(request_data.month){
+                    console.log("MONTH");
+                    query = `
+                    SELECT order_id, pickup_address, dropoff_address, earnings_rs
+                    FROM tbl_delivery_order
+                    WHERE vehicle_id IN (?)
+                    AND status = 'completed'
+                    AND delivery_status = 'delivered'
+                    AND updated_at >= NOW() - INTERVAL 30 DAY;`;
+
+                } else if(request_data.year){
+                    console.log("YEAR");
+                    query = `
+                    SELECT order_id, pickup_address, dropoff_address, earnings_rs
+                    FROM tbl_delivery_order
+                    WHERE vehicle_id IN (?)
+                    AND status = 'completed'
+                    AND delivery_status = 'delivered'
+                    AND updated_at >= NOW() - INTERVAL 365 DAY;`;
+
+                } else{
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('missing_required_fields')
+                    }));
+                }
+
+                const [orders] = await database.query(query, [vehicle_ids]);
+
+                const formattedOrders = orders.map(order => ({
+                    order_id: order.order_id,
+                    pickup_address: order.pickup_address,
+                    dropoff_address: order.dropoff_address,
+                    earnings_rs: parseFloat(order.earnings_rs) || 0
+                }));
+                
+                const total_earnings = formattedOrders.reduce((sum, order) => sum + order.earnings_rs, 0).toFixed(2);
+                
+                const response = {
+                    orders: formattedOrders,
+                    total_earnings: total_earnings
+                };
+                
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('orders_and_earnings_fetched_successfully'),
+                    data: response
+                }));                
+
+            } catch(error){
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }))
+            }
+        }
 }
 
 module.exports = new driverModel();
