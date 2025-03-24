@@ -798,6 +798,20 @@ class driverModel{
                         message: t('invalid_delivery_status')
                     }));
                 }
+
+                if (delivery_status === 'delivered') {
+                    const otp = common.generateOtp(4);
+        
+                    // Replace with actual OTP sending logic (SMS, email, notification, etc.)
+                    console.log(`OTP sent to user: ${otp}`);
+        
+                    await database.query(`
+                        UPDATE tbl_delivery_order
+                        SET delivery_otp = ?
+                        WHERE order_id = ?
+                    `, [otp, order_id]);
+
+                }
         
                 const updateQuery = `
                     UPDATE tbl_delivery_order
@@ -819,6 +833,177 @@ class driverModel{
                 }));
             }
         }
+        
+        async get_upcoming_deliveries(request_data, driver_id, callback) {
+            try{
+                const [driver] = await database.query(`SELECT * from tbl_vehicle where driver_id = ?`, [driver_id]);
+                if(driver.length === 0){
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('no_vehicle_found')
+                    }));
+                }
+
+                const vehicle_id = driver[0].vehicle_id;
+
+                const [order] = await database.query(`SELECT * 
+                    from tbl_delivery_order where vehicle_id = ? and 
+                    status = 'accepted' and delivery_status = 'confirmed' 
+                    and is_canceled = 0`, [vehicle_id]);
+
+                if(order.length === 0){
+                    return callback(common.encrypt({
+                        code: response_code.SUCCESS,
+                        message: t('no_upcoming_deliveries_found')
+                    }));
+                }
+
+                const scheduled_time = new Date(order[0].scheduled_time);
+        
+                const order_date = scheduled_time.getFullYear() + '-' +
+                        String(scheduled_time.getMonth() + 1).padStart(2, '0') + '-' +
+                        String(scheduled_time.getDate()).padStart(2, '0');
+        
+                let hours = scheduled_time.getHours();
+                const minutes = String(scheduled_time.getMinutes()).padStart(2, '0');
+                const seconds = String(scheduled_time.getSeconds()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12 || 12;
+        
+                const order_time = `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
+
+                const data = {
+                    pickup_address: order[0].pickup_address,
+                    dropoff_address: order[0].dropoff_address,
+                    order_date: order_date,
+                    order_time: order_time
+                }
+
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('upcoming_deliveries_found'),
+                    data: data
+                }));
+
+            } catch(error){
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }));
+            }
+        }
+
+        async verify_delivery(request_data, driver_id, callback) {
+            try {
+                const { order_id, delivery_otp } = request_data;
+        
+                if (!order_id || !delivery_otp) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('missing_required_fields')
+                    }));
+                }
+        
+                const [order] = await database.query(`
+                    SELECT * FROM tbl_delivery_order WHERE order_id = ?
+                `, [order_id]);
+        
+                if (!order || order.length === 0) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('no_order_found')
+                    }));
+                }
+
+                const [driver] = await database.query(`select * from tbl_vehicle where driver_id = ?`, [driver_id]);
+                const vehicle_id = driver[0].vehicle_id;
+        
+                if (order[0].vehicle_id !== vehicle_id) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('unauthorized_driver')
+                    }));
+                }
+
+                if (order[0].delivery_otp !== delivery_otp) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('invalid_otp')
+                    }));
+                }
+
+                const distance_km = order[0].distance_km;
+                const order_points = distance_km * 100;
+                console.log(order_points);
+                const earnings_rs = (order_points / 50) * 20;
+                console.log(earnings_rs);
+        
+                await database.query(`
+                    UPDATE tbl_delivery_order
+                    SET delivery_otp = NULL, order_points = ?, 
+                    earnings_rs = ?, updated_at = NOW()
+                    WHERE order_id = ?
+                `, [order_id, earnings_rs, order_id]);
+        
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('otp_verified_successfully'),
+                    data: order[0]
+                }));
+        
+            } catch (error) {
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }));
+            }
+        }
+        
+        async set_availability(request_data, driver_id, callback) {
+            try {
+                const { days, startTime, endTime, radius_km } = request_data;
+        
+                if (!days || !startTime || !endTime || days.length === 0) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('missing_required_fields')
+                    }));
+                }
+
+                await database.query(`DELETE FROM tbl_driver_availability WHERE driver_id = ?`, [driver_id]);
+        
+                const values = days.map((day, index) => [
+                    driver_id,
+                    day,
+                    startTime[index],
+                    endTime[index],
+                    radius_km || 5.00
+                ]);
+
+                console.log(values);
+        
+                const insertQuery = `
+                    INSERT INTO tbl_driver_availability (driver_id, day, start_time, end_time, radius_km)
+                    VALUES ?
+                `;
+        
+                await database.query(insertQuery, [values]);
+        
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('availability_set_successfully')
+                }));
+        
+            } catch (error) {
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }));
+            }
+        }        
         
 
 }

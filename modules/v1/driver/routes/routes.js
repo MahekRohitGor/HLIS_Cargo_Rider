@@ -12,6 +12,9 @@ const user = (app) =>{
         app.post("/v1/driver/show-order", users.list_nearby_orders);
         app.post("/v1/driver/accept-order", users.accept_order);
         app.post("/v1/driver/update-status", users.updateDeliveryStatus);
+        app.post("/v1/driver/get-upcoming-deliveries", users.get_upcoming_deliveries);
+        app.post("/v1/driver/verify-delivery", users.verify_delivery);
+        app.post("/v1/driver/set-availibility", users.set_availability);
 }
 
 module.exports = user;

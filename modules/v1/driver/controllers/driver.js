@@ -111,6 +111,36 @@ class User{
         });
     }
 
+    async get_upcoming_deliveries(req,res){
+        const requested_data = req.body;
+        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const user_id = req.user_id;
+
+        driverModel.get_upcoming_deliveries(request_data, user_id, (_response_data)=>{
+            common.response(res, _response_data);
+        });
+    }
+
+    async verify_delivery(req,res){
+        const requested_data = req.body;
+        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const user_id = req.user_id;
+
+        driverModel.verify_delivery(request_data, user_id, (_response_data)=>{
+            common.response(res, _response_data);
+        });
+    }
+
+    async set_availability(req,res){
+        const requested_data = req.body;
+        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const user_id = req.user_id;
+
+        driverModel.set_availability(request_data, user_id, (_response_data)=>{
+            common.response(res, _response_data);
+        });
+    }
+
 }
 
 
