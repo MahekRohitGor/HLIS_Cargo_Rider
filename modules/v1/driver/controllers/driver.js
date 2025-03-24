@@ -79,7 +79,38 @@ class User{
         driverModel.add_vehicle_data(request_data, user_id, (_response_data)=>{
             common.response(res, _response_data);
         });
+    }
+
+    async list_nearby_orders(req,res){
+        const requested_data = req.body;
+        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const user_id = req.user_id;
+
+        driverModel.list_nearby_orders(request_data, user_id, (_response_data)=>{
+            common.response(res, _response_data);
+        });
+    }
+
+    async accept_order(req,res){
+        const requested_data = req.body;
+        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const user_id = req.user_id;
+
+        driverModel.accept_order(request_data, user_id, (_response_data)=>{
+            common.response(res, _response_data);
+        });
     } 
+
+    async updateDeliveryStatus(req,res){
+        const requested_data = req.body;
+        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const user_id = req.user_id;
+
+        driverModel.updateDeliveryStatus(request_data, user_id, (_response_data)=>{
+            common.response(res, _response_data);
+        });
+    }
+
 }
 
 

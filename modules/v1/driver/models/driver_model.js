@@ -558,6 +558,268 @@ class driverModel{
             }
         }
 
+        async list_nearby_orders(request_data, driver_id, callback) {
+            try {
+                if (!driver_id) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('missing_driver_id')
+                    }));
+                }
+
+                const [driver] = await database.query(`
+                    SELECT latitude, longitude
+                    FROM tbl_driver
+                    WHERE driver_id = ?
+                    AND is_active = 1
+                    AND is_deleted = 0
+                `, [driver_id]);
+
+                if (!driver || driver.length === 0) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('driver_not_found')
+                    }));
+                }
+
+                const driver_latitude = parseFloat(driver[0].latitude);
+                const driver_longitude = parseFloat(driver[0].longitude);
+
+                if (!driver_latitude || !driver_longitude) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('driver_location_not_available')
+                    }));
+                }
+
+                const [orders] = await database.query(`
+                    SELECT 
+                        do.order_id,
+                        do.user_id,
+                        do.vehicle_id,
+                        do.pickup_latitude,
+                        do.pickup_longitude,
+                        do.pickup_address,
+                        do.dropoff_latitude,
+                        do.dropoff_longitude,
+                        do.dropoff_address,
+                        do.distance_km,
+                        do.total_price,
+                        do.requires_pod,
+                        do.scheduled_time,
+                        do.status,
+                        do.created_at,
+                        do.updated_at,
+                        v.model_name,
+                        v.number_plate,
+                        (
+                            6371 * acos(
+                                cos(radians(?)) * cos(radians(do.pickup_latitude)) * 
+                                cos(radians(do.pickup_longitude) - radians(?)) + 
+                                sin(radians(?)) * sin(radians(do.pickup_latitude))
+                            )
+                        ) AS distance_from_driver
+                    FROM tbl_delivery_order do
+                    LEFT JOIN tbl_vehicle v ON do.vehicle_id = v.vehicle_id
+                    WHERE do.status = 'pending'
+                    AND do.is_canceled = 0
+                    HAVING distance_from_driver <= 100
+                    ORDER BY distance_from_driver ASC
+                    LIMIT 20
+                `, [driver_latitude, driver_longitude, driver_latitude]);
+
+                if (orders.length === 0) {
+                    return callback(common.encrypt({
+                        code: response_code.SUCCESS,
+                        message: t('no_nearby_orders_found'),
+                        data: {
+                            orders: []
+                        }
+                    }));
+                }
+
+                const [user_data] = await database.query(`SELECT full_name, phone_number FROM tbl_user WHERE user_id = ?`, [orders[0].user_id]);
+                const user = user_data[0];
+
+                const formattedOrders = orders.map(order => ({
+                    order_id: order.order_id,
+                    user: user,
+                    pickup: {
+                        latitude: order.pickup_latitude,
+                        longitude: order.pickup_longitude,
+                        address: order.pickup_address
+                    },
+                    dropoff: {
+                        latitude: order.dropoff_latitude,
+                        longitude: order.dropoff_longitude,
+                        address: order.dropoff_address
+                    },
+                    distance_km: order.distance_km,
+                    total_price: order.total_price,
+                    requires_pod: order.requires_pod,
+                    scheduled_time: order.scheduled_time,
+                    status: order.status,
+                    distance_from_driver: Math.round(order.distance_from_driver * 100) / 100,
+                    created_at: order.created_at,
+                    updated_at: order.updated_at
+                }));
+
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('nearby_orders_listed_successfully'),
+                    data: {
+                        orders: formattedOrders
+                    }
+                }));
+
+            } catch (error) {
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }));
+            }
+        }
+        
+        async accept_order(request_data, driver_id, callback) {
+            try {
+                const { order_id } = request_data;
+                console.log(order_id);
+        
+                if (!order_id) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('missing_order_id')
+                    }));
+                }
+        
+                const [order] = await database.query(`
+                    SELECT * FROM tbl_delivery_order
+                    WHERE order_id = ?
+                    AND status = 'pending'
+                    AND is_canceled = 0
+                `, [order_id]);
+        
+                if (!order || order.length === 0) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('order_not_found')
+                    }));
+                }
+        
+                const [driver] = await database.query(`
+                    SELECT * FROM tbl_driver
+                    WHERE driver_id = ?
+                `, [driver_id]);
+        
+                if (!driver || driver.length === 0) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('driver_not_found')
+                    }));
+                }
+        
+                const [vehicle] = await database.query(`
+                    SELECT * FROM tbl_vehicle
+                    WHERE driver_id = ?
+                `, [driver_id]);
+        
+                if (!vehicle || vehicle.length === 0) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('vehicle_not_found')
+                    }));
+                }
+        
+                const driver_vehicle_id = vehicle[0].vehicle_id;
+        
+                const updateOrder = `
+                    UPDATE tbl_delivery_order
+                    SET vehicle_id = ?, 
+                        status = 'accepted',
+                        delivery_status = 'confirmed'
+                    WHERE order_id = ?
+                `;
+                await database.query(updateOrder, [driver_vehicle_id, order_id]);
+        
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('order_accepted_successfully')
+                }));
+        
+            } catch (error) {
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }));
+            }
+        }
+        
+        async updateDeliveryStatus(request_data, driver_id, callback) {
+            try {
+                const { order_id, delivery_status } = request_data;
+        
+                if (!order_id || !delivery_status) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('missing_required_fields')
+                    }));
+                }
+        
+                const [order] = await database.query(`
+                    SELECT * FROM tbl_delivery_order
+                    WHERE order_id = ?
+                    AND status = 'accepted'
+                    AND is_canceled = 0
+                `, [order_id]);
+        
+                if (!order || order.length === 0) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('order_not_found_or_not_accepted')
+                    }));
+                }
+
+                const findDriver = `SELECT * FROM tbl_vehicle WHERE driver_id = ?`;
+                const [driver] = await database.query(findDriver, [driver_id]);
+        
+                if (driver[0].driver_id !== driver_id) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('unauthorized_driver')
+                    }));
+                }
+        
+                const validStatuses = ['confirmed', 'waytopickup', 'waytodropoff', 'delivered'];
+                if (!validStatuses.includes(delivery_status)) {
+                    return callback(common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: t('invalid_delivery_status')
+                    }));
+                }
+        
+                const updateQuery = `
+                    UPDATE tbl_delivery_order
+                    SET delivery_status = ?, updated_at = NOW()
+                    WHERE order_id = ?
+                `;
+                await database.query(updateQuery, [delivery_status, order_id]);
+        
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('delivery_status_updated_successfully')
+                }));
+        
+            } catch (error) {
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }));
+            }
+        }
+        
 
 }
 
