@@ -120,7 +120,6 @@ class headerAuth{
                     : "en";
 
             process.env.LNG = lng;
-
             localizify
                 .add("en", en)
                 .add("fr", fr)

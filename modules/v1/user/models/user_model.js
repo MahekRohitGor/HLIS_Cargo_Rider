@@ -1241,6 +1241,44 @@ class userModel{
                 }))
             }
         }
+
+        async edit_order_details(request_data, user_id, callback){
+            try{
+                const order_id = request_data.order_id;
+                const findOrder = `SELECT * FROM tbl_delivery_order WHERE order_id = ? AND user_id = ? AND status in ('pending')`;
+                const [orderData] = await database.query(findOrder, [order_id, user_id]);
+
+                if(orderData.length === 0){
+                    return callback(common.encrypt({
+                        code: response_code.NOT_FOUND,
+                        message: t('order_not_found_or_can_not_edit')
+                    }))
+                }
+
+                const data = {
+                    weight_kg: request_data.weight_kg,
+                    unit: request_data.unit,
+                    height_feet: request_data.height_feet,
+                    width_feet: request_data.width_feet,
+                    notes: request_data.notes
+                }
+
+                const updateOrder = `UPDATE tbl_package_details SET ? where order_id = ?`;
+                await database.query(updateOrder, [data, order_id]);
+
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('order_updated_successfully')
+                }));
+
+            } catch(error){
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occured'),
+                    data: error.message
+                }));
+            }
+        }
 }
 
 module.exports = new userModel();

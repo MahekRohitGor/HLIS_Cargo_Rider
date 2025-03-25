@@ -160,6 +160,16 @@ class User{
             common.response(res, _response_data);
         });
     }
+
+    async edit_order_details(req,res){
+        const requested_data = req.body;
+        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const user_id = req.user_id;
+
+        userModel.edit_order_details(request_data, user_id, (_response_data)=>{
+            common.response(res, _response_data);
+        });
+    }
 }
 
 
