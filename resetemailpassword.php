@@ -1,7 +1,11 @@
 
 <!DOCTYPE html>
 <?php 
-$mysqli = new mysqli("","","","");
+$DB_HOST="localhost";
+$DB_USER="root";
+$DB_PASS="mahek1717";
+$DB_NAME="db_cargo_ride";
+$mysqli = new mysqli($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME);
 
 if(isset($_SESSION["login_sess"])) 
 {
@@ -27,10 +31,10 @@ if(isset($_SESSION["login_sess"]))
           {
             $token= $_GET['token'];
 
-            $fetchresultok = mysqli_query($mysqli, "SELECT email FROM pass_reset WHERE token='$token'");
+            $fetchresultok = mysqli_query($mysqli, "SELECT email_id FROM tbl_forgot_password_driver WHERE otp='$token'");
             if($res = mysqli_fetch_array($fetchresultok))
             {
-              $email= $res['email']; 
+              $email= $res['email_id']; 
             }
               if(isset($email) != '' ) {
                 $emailtok=$email;
@@ -63,10 +67,10 @@ if(isset($_SESSION["login_sess"]))
          if(strlen($password)>50){ // Max 
             $error[] = 'Password: Max length 50 Characters Not allowed';
         }
-        $fetchresultok = mysqli_query($mysqli, "SELECT email FROM pass_reset WHERE token='$token'");
+        $fetchresultok = mysqli_query($mysqli, "SELECT email_id FROM tbl_forgot_password_driver WHERE otp='$token'");
           if($res = mysqli_fetch_array($fetchresultok))
           {
-            $email= $res['email']; 
+            $email= $res['email_id']; 
           }
             if(isset($email) != '' ) {
               $emailtok=$email;
@@ -86,7 +90,7 @@ if(!isset($error)){
     { 
            $success="<div class='successmsg'><span style='font-size:100px;'>&#9989;</span> <br> Your password has been updated successfully.. <br> <a href='login.php' style='color:#fff;'>Login here... </a> </div>";
 
-          $resultdel = mysqli_query($mysqli, "DELETE FROM pass_reset WHERE token='$token'");
+          $resultdel = mysqli_query($mysqli, "DELETE FROM tbl_forgot_password_driver WHERE otp='$token'");
           $hide=1;
     }
 } 

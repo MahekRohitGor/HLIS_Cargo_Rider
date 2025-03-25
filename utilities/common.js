@@ -1,6 +1,7 @@
 var database = require("../config/database");
 var cryptLib = require("cryptlib");
 var constants = require("../config/constants");
+const nodemailer = require("nodemailer");
 
 class common{
     generateOtp(length){
@@ -25,6 +26,54 @@ class common{
             token += alphaNumeric[Math.floor(Math.random() * alphaNumeric.length)];
         }
         return token;
+    }
+
+    async requestValidation(v) {
+        if (v.fails()) {
+            const Validator_errors = v.getErrors();
+            const error = Object.values(Validator_errors)[0][0];
+            return {
+                code: true,
+                message: error
+            };
+        } 
+        return {
+            code: false,
+            message: ""
+        };
+    }
+
+    async sendMail(subject, to_email, message) {
+        try {
+            if (!to_email || to_email.trim() === "") {
+                throw new Error("Recipient email is empty or undefined!");
+            }
+
+            const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                host: 'smtp.gmail.com',
+                port: 587,
+                secure: false,
+                auth: {
+                    user: constants.mailer_email,
+                    pass: constants.mailer_password
+                }
+            });
+
+            const mailOptions = {
+                from: constants.from_email,
+                to: to_email,
+                subject: subject,
+                text: message
+            };
+
+            const info = await transporter.sendMail(mailOptions);
+            console.log(info);
+            return { success: true, info };
+        } catch (error) {
+            console.log(error);
+            return { success: false, error };
+        }
     }
 
     response(res,message){

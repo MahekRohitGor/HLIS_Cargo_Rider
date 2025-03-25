@@ -30,6 +30,19 @@ class driverModel{
             }
         
             const otp_ = common.generateOtp(4);
+
+            // send otp
+            const subject = "Cargo Rider - OTP for Verification";
+            const message = `Your OTP for verification is ${otp_}`;
+            const email = request_data.email_id;
+
+            try {
+                await common.sendMail(subject, email, message);
+                console.log("OTP email sent successfully!");
+            } catch (error) {
+                console.error("Error sending OTP email:", error);
+            }
+
             const updateOtpQuery = `UPDATE tbl_driver SET otp = ? WHERE driver_id = ?`;
             await database.query(updateOtpQuery, [otp_, user.driver_id]);
         
@@ -113,9 +126,43 @@ class driverModel{
                 const otp_ = common.generateOtp(4);
                 const updateOtpQuery = `UPDATE tbl_driver SET otp = ?, is_profile_completed = 0 WHERE driver_id = ?`;
                 await database.query(updateOtpQuery, [otp_, insertResult.insertId]);
+
+                // send otp to driver
+                const subject = "Cargo Rider - OTP for Verification";
+                const message = `Your OTP for verification is ${otp_}`;
+                const email = request_data.email_id;
+
+                try {
+                    await common.sendMail(subject, email, message);
+                    console.log("OTP email sent successfully!");
+                } catch (error) {
+                    console.error("Error sending OTP email:", error);
+                }
                 
                 const userFind = `SELECT full_name FROM tbl_driver WHERE driver_id = ? AND is_active = 1 AND is_deleted = 0`;
                 const [user] = await database.query(userFind, [insertResult.insertId]);
+
+                // Welcome email to driver
+                const subject_email = "Welcome to Cargo Rider!";
+                const message_email = `
+                    Dear User, 
+
+                    Welcome to Cargo Rider! We're excited to have you onboard. 
+                    Your account has been successfully created. You can now start using our platform for seamless cargo transportation.
+                    If you ever need assistance, feel free to reach out to our support team.
+
+                    Happy Riding!
+
+                    Best Regards,  
+                    Cargo Rider Team
+                `;
+
+                try {
+                    await common.sendMail(subject_email, email, message_email);
+                    console.log("Welcome Email Sent Success");
+                } catch (error) {
+                    console.error("Error sending Welcome email:", error);
+                }
                 
                 return callback(common.encrypt({
                     code: response_code.SUCCESS,
@@ -134,18 +181,18 @@ class driverModel{
     
         async verifyOTP(request_data, callback) {
             try {
-                const { code_id, phone_number, otp } = request_data;
+                const { email_id, otp } = request_data;
                 const selectDriverQuery = `
                     SELECT driver_id, otp, is_profile_completed 
                     FROM tbl_driver 
-                    WHERE phone_number = ? AND code_id = ? AND is_active = 1 AND is_deleted = 0
+                    WHERE email_id = ? AND is_active = 1 AND is_deleted = 0
                 `;
-                const [driverResult] = await database.query(selectDriverQuery, [phone_number, code_id]);
+                const [driverResult] = await database.query(selectDriverQuery, [email_id]);
         
                 if (driverResult.length === 0) {
                     return callback(common.encrypt({
                         code: response_code.NOT_FOUND,
-                        message: t('phone_number_not_registered')
+                        message: t('email_id_not_registered')
                     }));
                 }
         
@@ -167,6 +214,18 @@ class driverModel{
                         WHERE driver_id = ?
                     `;
                     await database.query(updatedriverQuery, [driver_id]);
+
+                    const subject_email = "Cargo Rider | Your Email has been verified!";
+                    const message_email = `
+                        OTP Verification was successful ! You can now login to our CARGO RIDER APP
+                    `;
+
+                    try {
+                        await common.sendMail(subject_email, request_data.email_id, message_email);
+                        console.log("Verify Email Sent Success");
+                    } catch (error) {
+                        console.error("Error sending Verify email:", error);
+                    }
         
                     return callback(common.encrypt({
                         code: response_code.SUCCESS,
@@ -229,6 +288,7 @@ class driverModel{
                 }
     
                 const otp = common.generateToken(4);
+
                 const tokenData = {
                     otp: otp,
                     expires_at: new Date(Date.now() + 3600000)
@@ -237,7 +297,20 @@ class driverModel{
                 tokenData.email_id = request_data.email_id;
     
                 await database.query("INSERT INTO tbl_forgot_password_driver SET ?", tokenData);
-                
+
+                // send otp to driver
+                const url = "http://localhost:8000/resetemailpassword.php?token=" + otp;
+                const subject = "Cargo Rider - Reset Password";
+                const message = `Click on the link to reset your password: ${url}`;
+                const email = request_data.email_id;
+
+                try {
+                    await common.sendMail(subject, email, message);
+                    console.log("Reset Password Email Sent Success");
+                } catch (error) {
+                    console.error("Error sending Reset Password email:", error);
+                }
+
                 return callback(common.encrypt({
                     code: response_code.SUCCESS,
                     message: t('password_reset_token_sent')
@@ -945,6 +1018,8 @@ class driverModel{
                     earnings_rs = ?, updated_at = NOW(), status = 'completed'
                     WHERE order_id = ?
                 `, [order_points, earnings_rs, order_id]);
+
+                // send email to user that order was delivered successfully
         
                 return callback(common.encrypt({
                     code: response_code.SUCCESS,
