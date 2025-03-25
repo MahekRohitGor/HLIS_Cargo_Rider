@@ -299,7 +299,8 @@ class driverModel{
     
                 await database.query("INSERT INTO tbl_forgot_password_driver SET ?", tokenData);
 
-                // send otp to driver
+                // send link to driver
+
                 const url = "http://localhost:8000/resetemailpassword.php?token=" + otp;
                 const subject = "Cargo Rider - Reset Password";
                 const message = `Click on the link to reset your password: ${url}`;
@@ -576,8 +577,15 @@ class driverModel{
             }
         } 
 
-        async add_vehicle_data(request_data, driver_id, callback){
+        async add_vehicle_data(request_data, driver_id, files, callback){
             try{
+                if (!files || Object.keys(files).length === 0) {
+                    return common.response(res, common.encrypt({
+                        code: response_code.OPERATION_FAILED,
+                        message: 'No documents uploaded'
+                    }));
+                }
+
                 const vehicle_data = {
                     driver_id: driver_id,
                     vehicle_type_id: request_data.vehicle_type_id,
@@ -603,12 +611,12 @@ class driverModel{
 
                 const vehicle_doc_data = {
                     vehicle_id: vehicle_id,
-                    adhar_card_front: request_data.adhar_card_front,
-                    adhar_card_back: request_data.adhar_card_back,
-                    pan_card_front: request_data.pan_card_front,
-                    pan_card_back: request_data.pan_card_back,
-                    driving_lic_card_front: request_data.driving_lic_card_front,
-                    driving_lic_card_back: request_data.driving_lic_card_back
+                    adhar_card_front: files.adhar_card_front ? files.adhar_card_front[0].path : null,
+                    adhar_card_back: files.adhar_card_back ? files.adhar_card_back[0].path : null,
+                    pan_card_front: files.pan_card_front ? files.pan_card_front[0].path : null,
+                    pan_card_back: files.pan_card_back ? files.pan_card_back[0].path : null,
+                    driving_lic_card_front: files.driving_lic_card_front ? files.driving_lic_card_front[0].path : null,
+                    driving_lic_card_back: files.driving_lic_card_back ? files.driving_lic_card_back[0].path : null
                 }
 
                 const insertDoc = `INSERT INTO tbl_vehicle_doc SET ?`;
@@ -1187,6 +1195,44 @@ class driverModel{
                     message: t('some_error_occurred'),
                     data: error.message
                 }));
+            }
+        }
+
+        async show_ratings(request_data, driver_id, callback){
+            try{
+                const selectRatingQuery = `select u.full_name, u.profile_pic, rrd.rating, rrd.review 
+                    from tbl_rating_review_driver rrd inner join tbl_user u
+                    on u.user_id = rrd.user_id where rrd.driver_id = ?;`
+                
+                const [ratings] = await database.query(selectRatingQuery, [driver_id]);
+
+                if(ratings.length === 0){
+                    return callback(common.encrypt({
+                        code: response_code.NOT_FOUND,
+                        message: t('no_ratings_found')
+                    }));
+                }
+
+                const resp = ratings.map(rating => ({
+                    user_name: rating.full_name,
+                    profile_pic: rating.profile_pic ? constants.link + rating.profile_pic : null,
+                    rating: rating.rating,
+                    review: rating.review
+                }));
+
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('ratings_found_successfully'),
+                    data: resp
+                }));
+
+
+            } catch(error){
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occured'),
+                    data: error.message
+                }))
             }
         }
 }

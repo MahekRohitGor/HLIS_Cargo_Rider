@@ -15,7 +15,7 @@ class headerAuth{
         var api_key = (req.headers['api-key'] != undefined && req.headers['api-key'] != "" ? req.headers['api-key'] : '');
         if(api_key != ""){
             try{
-                var api_dec = common.decryptPlain(api_key).replace(/\0/g, '').replace(/[^\x00-\xFF]/g, "");
+                var api_dec = api_key;
                 console.log(api_dec === process.env.API_KEY);
                 if(api_dec === process.env.API_KEY){
                     next();
@@ -127,7 +127,7 @@ class headerAuth{
                 .add("guj", guj);
     
             const byPassApi = ['forgotPassword', 'verifyOtp', 'resendOTP' , 'login', 'signup', 'resetPassword', 'api-docs', 'admin-login'];
-            var api_dec = common.decryptPlain(headers["api-key"]).replace(/\0/g, '').replace(/[^\x00-\xFF]/g, "");
+            var api_dec = headers["api-key"];
             if (api_dec === process.env.API_KEY) {
                 var headerObj = new headerAuth();
                 req = headerObj.extractMethod(req);

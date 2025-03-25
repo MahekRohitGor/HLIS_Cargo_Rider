@@ -72,11 +72,12 @@ class User{
     }
 
     async add_vehicle_data(req,res){
-        const requested_data = req.body;
-        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        console.log("1");
+        const request_data = req.body;
+        // const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const files = req.files;
         const user_id = req.user_id;
-
-        driverModel.add_vehicle_data(request_data, user_id, (_response_data)=>{
+        driverModel.add_vehicle_data(request_data, user_id, files, (_response_data)=>{
             common.response(res, _response_data);
         });
     }
@@ -157,6 +158,26 @@ class User{
         const user_id = req.user_id;
 
         driverModel.list_driver_notification(request_data, user_id, (_response_data)=>{
+            common.response(res, _response_data);
+        });
+    }
+
+    async list_driver_notification(req,res){
+        const requested_data = req.body;
+        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const user_id = req.user_id;
+
+        driverModel.list_driver_notification(request_data, user_id, (_response_data)=>{
+            common.response(res, _response_data);
+        });
+    }
+
+    async show_ratings(req,res){
+        const requested_data = req.body;
+        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const user_id = req.user_id;
+
+        driverModel.show_ratings(request_data, user_id, (_response_data)=>{
             common.response(res, _response_data);
         });
     }

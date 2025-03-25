@@ -31,20 +31,34 @@ class validator{
             }
     }
 
-    extractHeaderLang(req,res,next) {
+    extractHeaderLang(req, res, next) {
         req.userLang = req.headers["accept-language"] || "en";
-
+    
         localizify
-        .add("en", en)
-        .add("fr", fr)
-        .add("guj", guj);
+            .add("en", en)
+            .add("fr", fr)
+            .add("guj", guj);
         
         localizify.setLocale(req.userLang);
-        if (!req.body.userLang) {
-            const req_body = JSON.parse(common.decryptPlain(req.body));
-            req_body.userLang = req.userLang;
-            req.body = common.encrypt(req_body);
+        if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+            if (req.body && typeof req.body === 'object' && !req.body.userLang) {
+                req.body.userLang = req.userLang;
+            }
+            return next();
         }
+        try {
+            if (req.body && typeof req.body === 'object' && !req.body.userLang) {
+                req.body.userLang = req.userLang;
+            } else if (typeof req.body === 'string') {
+                const decrypted = common.decryptPlain(req.body);
+                const req_body = JSON.parse(decrypted);
+                req_body.userLang = req.userLang;
+                req.body = common.encrypt(req_body);
+            }
+        } catch (error) {
+            console.error('Language middleware decryption error:', error);
+        }
+    
         next();
     }
     
