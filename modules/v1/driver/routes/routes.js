@@ -16,6 +16,7 @@ const user = (app) =>{
         app.post("/v1/driver/verify-delivery", users.verify_delivery);
         app.post("/v1/driver/set-availibility", users.set_availability);
         app.post("/v1/driver/show-earnings", users.show_earnings);
+        app.post("/v1/driver/list-notification", users.list_driver_notification);
 }
 
 module.exports = user;

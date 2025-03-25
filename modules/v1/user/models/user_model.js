@@ -636,6 +636,17 @@ class userModel{
                     discount: orderData.discount,
                     total_price: total_price,
                 };
+
+                const notificationQuery = `
+                INSERT INTO tbl_notification 
+                (title, cover_image, descriptions, user_id, notification_type) 
+                VALUES (?, "notification.png", ?, ?, ?)
+                `;
+
+                const title = "Order Placed and Scheduled";
+                const descriptions = `Order #${order_id} has been Placed and Scheduled at ${scheduled_time} successfully.`;
+                const notificationType = "success";
+                await database.query(notificationQuery, [title, descriptions, user_id, notificationType]);                
         
                 return callback(common.encrypt({
                     code: response_code.SUCCESS,
@@ -683,6 +694,7 @@ class userModel{
         async cancel_order(request_data, user_id, callback) {
             try {
                 const order_id = request_data.order_id;
+                const cancel_res_id = request_data.cancel_order;
         
                 const getOrder = `SELECT * FROM tbl_delivery_order WHERE order_id = ? AND user_id = ?`;
                 const [order] = await database.query(getOrder, [order_id, user_id]);
@@ -695,8 +707,14 @@ class userModel{
                 }
         
                 const currentStatus = order[0].status;
+                const current_delivery_status = order[0].delivery_status;
+                const cancellable_delivery_statuses = ['confirmed'];
+
                 const vehicle_id = order[0].vehicle_id;
                 const cancellableStatuses = ['pending', 'accepted'];
+
+                const [driver] = await database.query(`SELECT * FROM tbl_vehicle WHERE vehicle_id = ?`, [vehicle_id]);
+                const driver_id = driver[0].driver_id;
         
                 if (currentStatus === 'cancelled') {
                     return callback(common.encrypt({
@@ -705,7 +723,7 @@ class userModel{
                     }));
                 }
         
-                if (!cancellableStatuses.includes(currentStatus)) {
+                if (!cancellableStatuses.includes(currentStatus) && !cancellable_delivery_statuses.includes(current_delivery_status)) {
                     return callback(common.encrypt({
                         code: response_code.OPERATION_FAILED,
                         message: t('order_cannot_be_cancelled')
@@ -722,10 +740,24 @@ class userModel{
         
                 const cancel_order = `
                     UPDATE tbl_delivery_order 
-                    SET status = 'cancelled', is_canceled = 1 
+                    SET status = 'cancelled', is_canceled = 1, cancel_res_id = ? 
                     WHERE order_id = ? AND user_id = ?
                 `;
-                await database.query(cancel_order, [order_id, user_id]);
+                await database.query(cancel_order, [cancel_res_id, order_id, user_id]);
+
+                if(cancellable_delivery_statuses.includes(current_delivery_status)){
+                    const notificationQuery = `
+                    INSERT INTO tbl_driver_notification 
+                    (title, descriptions, driver_id, notification_type) 
+                    VALUES (?, ?, ?, ?)
+                    `;
+
+                    const title = "Order Cancelled";
+                    const descriptions = `Order #${order_id} has been cancelled successfully.`;
+                    const notificationType = "cancel";
+                    await database.query(notificationQuery, [title, descriptions, driver_id, notificationType]);
+
+                }
         
                 return callback(common.encrypt({
                     code: response_code.SUCCESS,
@@ -1146,6 +1178,69 @@ class userModel{
             }
         }        
 
+        async add_driver_rating(request_data, user_id, callback){
+            try{
+                const rating_data = {
+                    user_id: user_id
+                };
+
+                if(request_data.rating){
+                    rating_data.rating = request_data.rating;
+                }
+                if(request_data.review){
+                    rating_data.review = request_data.review;
+                }
+                if(request_data.order_id){
+                    rating_data.order_id = request_data.order_id;
+                }
+
+                const findVehicle = `SELECT * from tbl_delivery_order where order_id = ? where status = 'completed' and delivery_status = 'delivered'`;
+                const [vehicle_data] = await database.query(findVehicle, [rating_data.order_id]);
+                const vehicle_id = vehicle_data[0].vehicle_id;
+
+                const findDriver = `SELECT * from tbl_vehicle where vehicle_id = ?`;
+                const [driver_data] = await database.query(findDriver, [vehicle_id]);
+
+                const driver_id = driver_data[0].driver_id;
+        
+                const driverQuery = `SELECT * FROM tbl_driver WHERE driver_id = ?`;
+                const [driverResult] = await database.query(driverQuery, [driver_id]);
+        
+                if (!driverResult || driverResult.length === 0) {
+                    return callback(common.encrypt({
+                        code: response_code.NOT_FOUND,
+                        message: t('driver_not_found')
+                    }));
+                }
+        
+                const ratingQuery = `SELECT * FROM tbl_driver_rating WHERE driver_id = ? AND user_id = ?`;
+                const [ratingResult] = await database.query(ratingQuery, [driver_id, user_id]);
+        
+                if (ratingResult.length > 0) {
+                    return callback(common.encrypt({
+                        code: response_code.ALREADY_EXISTS,
+                        message: t('rating_already_exists')
+                    }));
+                }
+        
+                rating_data.driver_id = driver_id;
+        
+                const insertRating = `INSERT INTO tbl_driver_rating SET ?`;
+                await database.query(insertRating, [rating_data]);
+        
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('rating_added_successfully')
+                }));
+
+            } catch(error){
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }))
+            }
+        }
 }
 
 module.exports = new userModel();

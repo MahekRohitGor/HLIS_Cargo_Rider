@@ -13,6 +13,7 @@ const moment = require('moment');
 const { t } = require('localizify');
 const { drop } = require("lodash");
 const { schedule } = require("node-cron");
+const constants = require("../../../../config/constants");
 
 class driverModel{
         async findExistingDriver(database, email_id, phone_number = null) {
@@ -34,7 +35,7 @@ class driverModel{
             // send otp
             const subject = "Cargo Rider - OTP for Verification";
             const message = `Your OTP for verification is ${otp_}`;
-            const email = request_data.email_id;
+            const email = user.email_id;
 
             try {
                 await common.sendMail(subject, email, message);
@@ -1152,6 +1153,40 @@ class driverModel{
                     message: t('some_error_occurred'),
                     data: error.message
                 }))
+            }
+        }
+
+        async list_driver_notification(request_data, driver_id, callback){
+            try{
+                const getNotifications = `SELECT * FROM tbl_driver_notification WHERE driver_id = ?`;
+                const [notifications] = await database.query(getNotifications, [driver_id]);
+
+                
+                const response = notifications.map(notification => ({
+                    cover_image: notification.cover_image ? constants.link + notification.cover_image : null,
+                    title: notification.title,
+                    description: notification.descriptions
+                }));
+
+                if(notifications.length === 0){
+                    return callback(common.encrypt({
+                        code: response_code.NOT_FOUND,
+                        message: t('no_notifications_found')
+                    }));
+                }
+        
+                return callback(common.encrypt({
+                    code: response_code.SUCCESS,
+                    message: t('notifications_listed_successfully'),
+                    data: response
+                }));
+        
+            } catch(error){
+                return callback(common.encrypt({
+                    code: response_code.OPERATION_FAILED,
+                    message: t('some_error_occurred'),
+                    data: error.message
+                }));
             }
         }
 }
