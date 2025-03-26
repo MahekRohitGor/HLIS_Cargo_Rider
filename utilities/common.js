@@ -175,6 +175,59 @@ class common{
         }
     }
 
+    async findExistingDriver(database, email_id, phone_number = null) {
+        const findDriverQuery = `SELECT * FROM tbl_driver WHERE (email_id = ? OR phone_number = ?) AND is_deleted = 0 AND is_active = 1`;
+        const [existingDriver] = await database.query(findDriverQuery, [email_id, phone_number || email_id]);
+        return existingDriver;
+    }
+    
+    async handleExistingDriverOTP(database, user, callback) {
+        if (user.otp) {
+            return callback(common.encrypt({
+                code: response_code.VERIFICATION_PENDING,
+                message: t('verify_account_driver_exists')
+            }));
+        }
+    
+        const otp_ = common.generateOtp(4);
+        const subject = "Cargo Rider - OTP for Verification";
+        const email = user.email_id;
+
+        const data = {
+            name: user.full_name || 'User',
+            otp: otp_
+        }
+
+        try {
+            const htmlMessage = sendOTP(data);
+            await common.sendMail(subject, email, htmlMessage);
+            console.log("OTP email sent successfully!");
+        } catch (error) {
+            console.error("Error sending OTP email:", error);
+        }
+
+        const updateOtpQuery = `UPDATE tbl_driver SET otp = ? WHERE driver_id = ?`;
+        await database.query(updateOtpQuery, [otp_, user.driver_id]);
+    
+        return callback(common.encrypt({
+            code: response_code.VERIFICATION_PENDING,
+            message: t('otp_sent_please_verify_acc'),
+            data: user.email_id
+        }));
+    }
+
+    calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = 
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
     encrypt(data) {
         return cryptLib.encrypt(JSON.stringify(data), constants.encryptionKey, constants.encryptionIV);
     }

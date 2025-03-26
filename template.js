@@ -1005,7 +1005,7 @@ var exports = module.exports = {};
       </html>`;
     
       return template;
-    }
+    },
 
     exports.orderConfirmationEmail = function(orderData) {
       const template = `<!DOCTYPE html>
@@ -1329,8 +1329,7 @@ var exports = module.exports = {};
       </html>`;
     
       return template;
-    };
-
+    }
 
 
 

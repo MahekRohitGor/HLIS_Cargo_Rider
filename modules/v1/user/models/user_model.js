@@ -9,7 +9,6 @@ const guj = require("../../../../language/guj");
 const validator = require("../../../../middlewares/validator");
 var lib = require('crypto-lib');
 const moment = require('moment');
-
 const {forgot_password, contactUs, sendOTP, welcomeEmail, orderConfirmationEmail} = require("../../../../template");
 
 const { t } = require('localizify');
@@ -33,7 +32,6 @@ class userModel{
         
             const otp_ = common.generateOtp(4);
             const subject = "Cargo Rider - OTP for Verification";
-            // const message = `Your OTP for verification is ${otp_}`;
             const email = user.email_id;
 
             const data = {
@@ -57,18 +55,6 @@ class userModel{
                 message: t('otp_sent_please_verify_acc'),
                 data: user.email_id
             }));
-        }
-        
-        calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = 
-                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
         }
 
         async signup(request_data, files, callback) {
@@ -296,7 +282,6 @@ class userModel{
 
                 const url = "http://localhost:8000/resetemailpasswordUser.php?token=" + otp;
                 const subject = "Cargo Rider - Reset Password";
-                // const message = `Click on the link to reset your password: ${url}`;
                 const email = request_data.email_id;
 
                 const emailData = {
@@ -505,7 +490,7 @@ class userModel{
                     }));
                 }
         
-                const distance_km = this.calculateDistance(latitude_pickup, longitude_pickup, latitude_drop, longitude_drop);
+                const distance_km = common.calculateDistance(latitude_pickup, longitude_pickup, latitude_drop, longitude_drop);
         
                 const [vehicle_types] = await database.query(`
                     SELECT 
@@ -548,7 +533,7 @@ class userModel{
 
                     let estimated_time_vehicle_to_pickup_minutes = 0;
                     if (vehicleLatitude && vehicleLongitude) {
-                        const distance_km_vehicle_to_pickup = this.calculateDistance(
+                        const distance_km_vehicle_to_pickup = common.calculateDistance(
                             vehicleLatitude,
                             vehicleLongitude,
                             latitude_pickup,
@@ -685,7 +670,7 @@ class userModel{
                 const getpackageData = `SELECT * FROM tbl_package_details WHERE package_id = ?`;
                 const [packageData] = await database.query(getpackageData, [package_id]);
         
-                const distance_km = await this.calculateDistance(
+                const distance_km = await common.calculateDistance(
                     request_data.pickup_latitude,
                     request_data.pickup_longitude,
                     request_data.dropoff_latitude,

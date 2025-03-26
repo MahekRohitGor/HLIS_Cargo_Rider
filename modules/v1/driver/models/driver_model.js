@@ -9,6 +9,7 @@ const guj = require("../../../../language/guj");
 const validator = require("../../../../middlewares/validator");
 var lib = require('crypto-lib');
 const moment = require('moment');
+const {forgot_password, contactUs, sendOTP, welcomeEmail, orderConfirmationEmail} = require("../../../../template");
 
 const { t } = require('localizify');
 const { drop } = require("lodash");
@@ -16,56 +17,6 @@ const { schedule } = require("node-cron");
 const constants = require("../../../../config/constants");
 
 class driverModel{
-        async findExistingDriver(database, email_id, phone_number = null) {
-            const findDriverQuery = `SELECT * FROM tbl_driver WHERE (email_id = ? OR phone_number = ?) AND is_deleted = 0 AND is_active = 1`;
-            const [existingDriver] = await database.query(findDriverQuery, [email_id, phone_number || email_id]);
-            return existingDriver;
-        }
-        
-        async handleExistingDriverOTP(database, user, callback) {
-            if (user.otp) {
-                return callback(common.encrypt({
-                    code: response_code.VERIFICATION_PENDING,
-                    message: t('verify_account_driver_exists')
-                }));
-            }
-        
-            const otp_ = common.generateOtp(4);
-
-            // send otp
-            const subject = "Cargo Rider - OTP for Verification";
-            const message = `Your OTP for verification is ${otp_}`;
-            const email = user.email_id;
-
-            try {
-                await common.sendMail(subject, email, message);
-                console.log("OTP email sent successfully!");
-            } catch (error) {
-                console.error("Error sending OTP email:", error);
-            }
-
-            const updateOtpQuery = `UPDATE tbl_driver SET otp = ? WHERE driver_id = ?`;
-            await database.query(updateOtpQuery, [otp_, user.driver_id]);
-        
-            return callback(common.encrypt({
-                code: response_code.VERIFICATION_PENDING,
-                message: t('otp_sent_please_verify_acc'),
-                data: user.email_id
-            }));
-        }
-        
-        calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = 
-                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
         async signup(request_data, files, callback) {
             try {
                 const data_received = {
@@ -95,10 +46,10 @@ class driverModel{
                         profile_pic: files.profile_pic ? files.profile_pic[0].filename : null,
                     };
         
-                    const existingDriver = await this.findExistingDriver(database, driverData.email_id, driverData.phone_number);
+                    const existingDriver = await common.findExistingDriver(database, driverData.email_id, driverData.phone_number);
                     
                     if (existingDriver.length > 0) {
-                        return await this.handleExistingDriverOTP(database, existingDriver[0], callback);
+                        return await common.handleExistingDriverOTP(database, existingDriver[0], callback);
                     }
         
                 } else {
@@ -108,9 +59,9 @@ class driverModel{
                         signup_type: request_data.signup_type
                     };
                 
-                    const existingUser = await this.findExistingDriver(database, data_received.email_id);
+                    const existingUser = await common.findExistingDriver(database, data_received.email_id);
                     if (existingUser.length > 0) {
-                        return await this.handleExistingDriverOTP(database, existingUser[0], callback);
+                        return await common.handleExistingDriverOTP(database, existingUser[0], callback);
                     }
                 }
                 
@@ -130,11 +81,16 @@ class driverModel{
 
                 // send otp to driver
                 const subject = "Cargo Rider - OTP for Verification";
-                const message = `Your OTP for verification is ${otp_}`;
                 const email = request_data.email_id;
 
+                const data = {
+                    name: request_data.full_name || 'User',
+                    otp: otp_
+                }
+
                 try {
-                    await common.sendMail(subject, email, message);
+                    const htmlMessage = sendOTP(data);
+                    await common.sendMail(subject, email, htmlMessage);
                     console.log("OTP email sent successfully!");
                 } catch (error) {
                     console.error("Error sending OTP email:", error);
@@ -145,27 +101,19 @@ class driverModel{
 
                 // Welcome email to driver
                 const subject_email = "Welcome to Cargo Rider!";
-                const message_email = `
-                    Dear User, 
-
-                    Welcome to Cargo Rider! We're excited to have you onboard. 
-                    Your account has been successfully created. You can now start using our platform for seamless cargo transportation.
-                    If you ever need assistance, feel free to reach out to our support team.
-
-                    Happy Riding!
-
-                    Best Regards,  
-                    Cargo Rider Team
-                `;
+                const welcomeMessageData = {
+                    name: request_data.full_name || "User"
+                }
 
                 try {
-                    await common.sendMail(subject_email, email, message_email);
+                    const htmlMessage = welcomeEmail(welcomeMessageData);
+                    await common.sendMail(subject_email, email, htmlMessage);
                     console.log("Welcome Email Sent Success");
                 } catch (error) {
-                    console.error("Error sending Welcome email:", error);
+                    console.error("Error sending Welcome email:", error.message);
                 }
                 
-                return callback(common.encrypt({
+                callback(common.encrypt({
                     code: response_code.SUCCESS,
                     message: t('signup_success'),
                     data: user
@@ -303,11 +251,16 @@ class driverModel{
 
                 const url = "http://localhost:8000/resetemailpassword.php?token=" + otp;
                 const subject = "Cargo Rider - Reset Password";
-                const message = `Click on the link to reset your password: ${url}`;
                 const email = request_data.email_id;
 
+                const emailData = {
+                    name: request_data.full_name || 'User',
+                    url: url
+                };
+
                 try {
-                    await common.sendMail(subject, email, message);
+                    const htmlMessage = forgot_password(emailData);
+                    await common.sendMail(subject, email, htmlMessage);
                     console.log("Reset Password Email Sent Success");
                 } catch (error) {
                     console.error("Error sending Reset Password email:", error);
