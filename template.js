@@ -1,8 +1,8 @@
-var globals = require("../config/constant");
-var exports = module.exports = {}; // Define Module
+var globals = require("./config/constants");
+var exports = module.exports = {};
 
 
-exports.forgot_password = function(result, callback) {
+exports.forgot_password = function(result) {
         const template = `<!DOCTYPE html>
   <html xmlns="http://www.w3.org/1999/xhtml">
       <head>
@@ -209,7 +209,7 @@ exports.forgot_password = function(result, callback) {
                                                         <span style="color:#000000;"></span>
                                                         <!-- Your Content As below -->
                                                         <p style="margin:0;padding-bottom:1em;text-align: justify;"><span style="font-size:16px;"><span style="color: rgb(0, 0, 0);"><span style="font-family: arial,helvetica,sans-serif;"></span></span></span></p>
-                                                        <p style="margin:0;padding-bottom:1em"><span style="font-family:arial,helvetica,sans-serif;"><span style="font-size: 16px;">Dear <strong>${result.first_name}</strong>,</span></span></p>
+                                                        <p style="margin:0;padding-bottom:1em"><span style="font-family:arial,helvetica,sans-serif;"><span style="font-size: 16px;">Dear <strong>${result.name}</strong>,</span></span></p>
                                                         <p style="margin:0;padding-bottom:1em"><span style="font-family:arial,helvetica,sans-serif;"><span style="font-size: 16px;">Please use below link to change your password!</span></span></p>
                                                         <p style="margin:0;padding-bottom:1em"> </p>
                                                         
@@ -217,7 +217,7 @@ exports.forgot_password = function(result, callback) {
                                                         <p style="margin:0;padding-bottom:1em"><span style="font-family:arial,helvetica,sans-serif;"><span style="font-size: 16px;">Do not share your password to anyone.</span></span></p>
                                                         <p style="margin:0;padding-bottom:1em"> </p>
                                                         <p style="margin:0;padding-bottom:1em"><span style="font-family:arial,helvetica,sans-serif;"><span style="font-size: 16px;">Thank you,</span></span></p>
-                                                        <p style="margin:0;padding-bottom:0"><span style="font-family:arial,helvetica,sans-serif;"><span style="font-size: 16px;">${globals.app_name} Team</span></span></p>
+                                                        <p style="margin:0;padding-bottom:0"><span style="font-family:arial,helvetica,sans-serif;"><span style="font-size: 16px;">Cargo Team</span></span></p>
                                                       </td>
                                                     </tr>
                                                   </tbody>
@@ -244,7 +244,7 @@ exports.forgot_password = function(result, callback) {
         </body>
     </html>
     `;
-        callback(template);
+       return template;
     },
 
     exports.contactUs = function(result, callback) {

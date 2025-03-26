@@ -66,7 +66,7 @@ class driverModel{
             return R * c;
         }
 
-        async signup(request_data, callback) {
+        async signup(request_data, files, callback) {
             try {
                 const data_received = {
                     email_id: request_data.email_id,
@@ -89,10 +89,10 @@ class driverModel{
                         email_id: request_data.email_id,
                         company_name: request_data.company_name,
                         code_id: request_data.code_id,
-                        phone_number: request_data.mobile_number,
-                        password_: md5(request_data.passwords),
+                        phone_number: request_data.phone_number,
+                        password_: md5(request_data.password_),
                         signup_type: request_data.signup_type,
-                        login_type: request_data.signup_type
+                        profile_pic: files.profile_pic ? files.profile_pic[0].filename : null,
                     };
         
                     const existingDriver = await this.findExistingDriver(database, driverData.email_id, driverData.phone_number);

@@ -8,9 +8,10 @@ const vrules = require("../../../validation_rules");
 
 class User{
     async signup(req,res){
-        const requested_data = req.body;
-        const request_data = JSON.parse(common.decryptPlain(requested_data));
-        driverModel.signup(request_data, (_response_data)=>{
+        const request_data = req.body;
+        // const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const files = req.files;
+        driverModel.signup(request_data, files, (_response_data)=>{
             common.response(res, _response_data);
         });
     }

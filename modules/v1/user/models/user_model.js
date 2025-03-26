@@ -10,6 +10,8 @@ const validator = require("../../../../middlewares/validator");
 var lib = require('crypto-lib');
 const moment = require('moment');
 
+const {forgot_password} = require("../../../../template");
+
 const { t } = require('localizify');
 const { drop } = require("lodash");
 const { schedule } = require("node-cron");
@@ -30,6 +32,17 @@ class userModel{
             }
         
             const otp_ = common.generateOtp(4);
+            const subject = "Cargo Rider - OTP for Verification";
+            const message = `Your OTP for verification is ${otp_}`;
+            const email = user.email_id;
+            
+            try {
+                await common.sendMail(subject, email, message);
+                console.log("OTP email sent successfully!");
+            } catch (error) {
+                console.error("Error sending OTP email:", error);
+            }
+
             const updateOtpQuery = `UPDATE tbl_user SET otp = ? WHERE user_id = ?`;
             await database.query(updateOtpQuery, [otp_, user.user_id]);
         
@@ -118,9 +131,43 @@ class userModel{
                 const otp_ = common.generateOtp(4);
                 const updateOtpQuery = `UPDATE tbl_user SET otp = ?, is_profile_completed = 0 WHERE user_id = ?`;
                 await database.query(updateOtpQuery, [otp_, insertResult.insertId]);
+
+                // send otp to driver
+                const subject = "Cargo Rider - OTP for Verification";
+                const message = `Your OTP for verification is ${otp_}`;
+                const email = request_data.email_id;
+
+                try {
+                    await common.sendMail(subject, email, message);
+                    console.log("OTP email sent successfully!");
+                } catch (error) {
+                    console.error("Error sending OTP email:", error);
+                }
                 
                 const userFind = `SELECT full_name FROM tbl_user WHERE user_id = ? AND is_active = 1 AND is_deleted = 0`;
                 const [user] = await database.query(userFind, [insertResult.insertId]);
+
+                // Welcome email to driver
+                const subject_email = "Welcome to Cargo Rider!";
+                const message_email = `
+                    Dear User, 
+
+                    Welcome to Cargo Rider! We're excited to have you onboard. 
+                    Your account has been successfully created. You can now start using our platform for seamless cargo transportation.
+                    If you ever need assistance, feel free to reach out to our support team.
+
+                    Happy Riding!
+
+                    Best Regards,  
+                    Cargo Rider Team
+                `;
+
+                try {
+                    await common.sendMail(subject_email, email, message_email);
+                    console.log("Welcome Email Sent Success");
+                } catch (error) {
+                    console.error("Error sending Welcome email:", error);
+                }
                 
                 return callback(common.encrypt({
                     code: response_code.SUCCESS,
@@ -242,6 +289,24 @@ class userModel{
                 tokenData.email_id = request_data.email_id;
     
                 await database.query("INSERT INTO tbl_forgot_passwords SET ?", tokenData);
+
+                const url = "http://localhost:8000/resetemailpasswordUser.php?token=" + otp;
+                const subject = "Cargo Rider - Reset Password";
+                // const message = `Click on the link to reset your password: ${url}`;
+                const email = request_data.email_id;
+
+                const emailData = {
+                    name: request_data.full_name || 'User',
+                    url: url
+                };
+
+                try {
+                    const htmlMessage = forgot_password(emailData);
+                    await common.sendMail(subject, email, htmlMessage);
+                    console.log("Reset Password Email Sent Success");
+                } catch (error) {
+                    console.error("Error sending Reset Password email:", error);
+                }
                 
                 return callback(common.encrypt({
                     code: response_code.SUCCESS,
@@ -652,7 +717,48 @@ class userModel{
                 const title = "Order Placed and Scheduled";
                 const descriptions = `Order #${order_id} has been Placed and Scheduled at ${scheduled_time} successfully.`;
                 const notificationType = "success";
-                await database.query(notificationQuery, [title, descriptions, user_id, notificationType]);                
+                await database.query(notificationQuery, [title, descriptions, user_id, notificationType]); 
+                
+                const [user] = await database.query(`SELECT * FROM tbl_user WHERE user_id = ?`, [user_id]);
+
+                const subject = "Cargo Rider - Order Summary";
+                const message = `
+                Your Order Details:
+                -----------------------------
+                Order ID: ${order_id}
+                Status: ${resp.order_status} (${resp.delivery_status})
+
+                Pickup Location: ${resp.pick_up_loc}
+                Dropoff Location: ${resp.drop_off_loc}
+                Receiver: ${resp.receiver}
+
+                Package Details:
+                - Type: ${resp.item.name || 'N/A'}
+                ${resp.item.height_feet ? `- Height in feet: ${resp.item.height_feet}\n` : ''}
+                ${resp.item.width_feet ? `- Weight in feet: ${resp.item.width_feet}\n` : ''}
+                ${resp.item.notes ? `- NOTES: ${resp.item.notes}\n` : ''}
+
+                Delivery Info:
+                - Distance: ${resp.distance}
+                - Estimated Time: ${resp.time}
+   
+                Payment Method: ${resp.payment_data}
+
+                Payment Summary:
+                - Subtotal: $${resp.subtotal}
+                ${resp.tax ? `- Tax: $${resp.tax}\n` : ''}
+                ${resp.discount ? `- Discount: -$${resp.discount}\n` : ''}
+                - TOTAL: $${resp.total_price}
+
+                Thank you for choosing Cargo Rider!`;
+                const email = user[0].email_id;
+                
+                try {
+                    await common.sendMail(subject, email, message);
+                    console.log("Order email sent successfully!");
+                } catch (error) {
+                    console.error("Error sending OTP email:", error);
+                }
         
                 return callback(common.encrypt({
                     code: response_code.SUCCESS,
@@ -969,7 +1075,7 @@ class userModel{
 
         async add_review(request_data, user_id, callback) {
             try {
-                if (!request_data.order_id || !request_data.rating || !request_data.review) {
+                if (!request_data.order_id) {
                     return callback(common.encrypt({
                         code: response_code.INVALID_REQUEST,
                         message: t('missing_required_fields')

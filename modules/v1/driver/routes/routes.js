@@ -1,8 +1,10 @@
 const users = require("../controllers/driver");
-const { vehicleDocumentUpload } = require('../../../../middlewares/uploadFiles');
+const { vehicleDocumentUpload, UserImageUpload } = require('../../../../middlewares/uploadFiles');
 
 const user = (app) =>{
-        app.post("/v1/driver/signup", users.signup);
+        app.post("/v1/driver/signup", UserImageUpload.fields([
+                { name: 'profile_pic', maxCount: 1 }
+            ]), users.signup);
         app.post("/v1/driver/verifyOtp", users.verifyOtp);
         app.post("/v1/driver/forgotPassword", users.forgotPassword);
         app.post("/v1/driver/resetPassword", users.resetPassword);

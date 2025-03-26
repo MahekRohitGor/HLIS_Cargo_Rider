@@ -17,7 +17,8 @@ var constants = {
             user: process.env.MAILER_EMAIL,
             pass: process.env.MAILER_PASSWORD
         }
-    }
+    },
+    app_name: "Cargo Rider",
 }
 
 module.exports = constants;
