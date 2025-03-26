@@ -8,9 +8,10 @@ const vrules = require("../../../validation_rules");
 
 class User{
     async signup(req,res){
-        const requested_data = req.body;
-        const request_data = JSON.parse(common.decryptPlain(requested_data));
-        userModel.signup(request_data, (_response_data)=>{
+        const request_data = req.body;
+        const files = req.files;
+        // const request_data = JSON.parse(common.decryptPlain(requested_data));
+        userModel.signup(request_data, files, (_response_data)=>{
             common.response(res, _response_data);
         });
     }
@@ -142,11 +143,12 @@ class User{
     }
 
     async report(req,res){
-        const requested_data = req.body;
-        const request_data = JSON.parse(common.decryptPlain(requested_data));
+        const request_data = req.body;
+        // const request_data = JSON.parse(common.decryptPlain(requested_data));
         const user_id = req.user_id;
+        const files = req.files;
 
-        userModel.report(request_data, user_id, (_response_data)=>{
+        userModel.report(request_data, user_id, files, (_response_data)=>{
             common.response(res, _response_data);
         });
     }

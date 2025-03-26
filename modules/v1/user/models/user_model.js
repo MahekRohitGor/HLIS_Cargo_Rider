@@ -52,8 +52,15 @@ class userModel{
             return R * c;
         }
 
-        async signup(request_data, callback) {
+        async signup(request_data, files, callback) {
             try {
+                if (!request_data.email_id || !request_data.signup_type) {
+                    throw new Error("Email and signup type are required");
+                }
+
+                console.log("Request data:", request_data);
+                console.log("Files:", files);
+
                 const data_received = {
                     email_id: request_data.email_id,
                     signup_type: request_data.signup_type
@@ -62,8 +69,7 @@ class userModel{
                 const device_data = {
                     device_type: request_data.device_type,
                     os_version: request_data.os_version,
-                    app_version: request_data.app_version,
-                    time_zone: request_data.time_zone
+                    app_version: request_data.app_version
                 };
         
                 let userData;
@@ -74,10 +80,10 @@ class userModel{
                         full_name: request_data.full_name,
                         email_id: request_data.email_id,
                         code_id: request_data.code_id,
-                        phone_number: request_data.mobile_number,
-                        password_: md5(request_data.passwords),
+                        phone_number: request_data.phone_number,
+                        password_: md5(request_data.password_),
                         signup_type: request_data.signup_type,
-                        login_type: request_data.signup_type
+                        profile_pic: files.profile_pic ? files.profile_pic[0].filename : null,
                     };
         
                     const existingUser = await this.findExistingUser(database, userData.email_id, userData.phone_number);
@@ -1032,16 +1038,21 @@ class userModel{
             }
         }
         
-        async report(request_data, user_id, callback) {
+        async report(request_data, user_id, files, callback) {
             try {
                 const {
                     order_id,
                     subject,
-                    description,
-                    images = []
+                    description
                 } = request_data;
         
                 if (!order_id || !subject || !description || !user_id) {
+                    if (files && files.length > 0) {
+                        files.forEach(file => {
+                            fs.unlinkSync(file.path);
+                        });
+                    }
+
                     return callback(common.encrypt({
                         code: response_code.OPERATION_FAILED,
                         message: t('missing_required_fields')
@@ -1082,20 +1093,26 @@ class userModel{
                         description,
                         user_id,
                         is_active,
-                        is_deleted
-                    ) VALUES (?, ?, ?, 1, 0)
-                `, [subject, description, user_id]);
+                        is_deleted,
+                        order_id
+                    ) VALUES (?, ?, ?, 1, 0, ?)
+                `, [subject, description, user_id, order_id]);
         
                 const report_id = reportResult.insertId;
-        
-                if (images.length > 0) {
-                    const imageValues = images.map(image_name => [image_name, report_id]);
-                    await database.query(`
-                        INSERT INTO tbl_image_report (
-                            image_name,
-                            report_id
-                        ) VALUES ?
-                    `, [imageValues]);
+
+                if (files && files.length > 0) {
+                    const imageValues = files.map(file => [
+                        file.filename,
+                        report_id
+                ]);
+                
+                await database.query(`
+                    INSERT INTO tbl_image_report (
+                    image_name,
+                    report_id
+                    ) VALUES ?
+                `, [imageValues]);
+
                 }
         
                 return callback(common.encrypt({
