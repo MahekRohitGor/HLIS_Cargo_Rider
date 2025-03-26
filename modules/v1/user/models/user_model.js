@@ -10,7 +10,7 @@ const validator = require("../../../../middlewares/validator");
 var lib = require('crypto-lib');
 const moment = require('moment');
 
-const {forgot_password} = require("../../../../template");
+const {forgot_password, contactUs, sendOTP, welcomeEmail, orderConfirmationEmail} = require("../../../../template");
 
 const { t } = require('localizify');
 const { drop } = require("lodash");
@@ -33,11 +33,17 @@ class userModel{
         
             const otp_ = common.generateOtp(4);
             const subject = "Cargo Rider - OTP for Verification";
-            const message = `Your OTP for verification is ${otp_}`;
+            // const message = `Your OTP for verification is ${otp_}`;
             const email = user.email_id;
+
+            const data = {
+                name: user.full_name || 'User',
+                otp: otp_
+            }
             
             try {
-                await common.sendMail(subject, email, message);
+                const htmlMessage = sendOTP(data);
+                await common.sendMail(subject, email, htmlMessage);
                 console.log("OTP email sent successfully!");
             } catch (error) {
                 console.error("Error sending OTP email:", error);
@@ -134,11 +140,17 @@ class userModel{
 
                 // send otp to driver
                 const subject = "Cargo Rider - OTP for Verification";
-                const message = `Your OTP for verification is ${otp_}`;
+                // const message = `Your OTP for verification is ${otp_}`;
                 const email = request_data.email_id;
 
+                const data = {
+                    name: request_data.full_name || 'User',
+                    otp: otp_
+                }
+
                 try {
-                    await common.sendMail(subject, email, message);
+                    const htmlMessage = sendOTP(data);
+                    await common.sendMail(subject, email, htmlMessage);
                     console.log("OTP email sent successfully!");
                 } catch (error) {
                     console.error("Error sending OTP email:", error);
@@ -149,34 +161,26 @@ class userModel{
 
                 // Welcome email to driver
                 const subject_email = "Welcome to Cargo Rider!";
-                const message_email = `
-                    Dear User, 
-
-                    Welcome to Cargo Rider! We're excited to have you onboard. 
-                    Your account has been successfully created. You can now start using our platform for seamless cargo transportation.
-                    If you ever need assistance, feel free to reach out to our support team.
-
-                    Happy Riding!
-
-                    Best Regards,  
-                    Cargo Rider Team
-                `;
+                const welcomeMessageData = {
+                    name: request_data.full_name || "User"
+                }
 
                 try {
-                    await common.sendMail(subject_email, email, message_email);
+                    const htmlMessage = welcomeEmail(welcomeMessageData);
+                    await common.sendMail(subject_email, email, htmlMessage);
                     console.log("Welcome Email Sent Success");
                 } catch (error) {
                     console.error("Error sending Welcome email:", error);
                 }
                 
-                return callback(common.encrypt({
+                callback(common.encrypt({
                     code: response_code.SUCCESS,
                     message: t('signup_success'),
                     data: user
                 }));
                 
                 } catch (error) {
-                    return callback(common.encrypt({
+                    callback(common.encrypt({
                         code: response_code.OPERATION_FAILED,
                         message: t('some_error_occurred'),
                         data: error.message
@@ -722,39 +726,30 @@ class userModel{
                 const [user] = await database.query(`SELECT * FROM tbl_user WHERE user_id = ?`, [user_id]);
 
                 const subject = "Cargo Rider - Order Summary";
-                const message = `
-                Your Order Details:
-                -----------------------------
-                Order ID: ${order_id}
-                Status: ${resp.order_status} (${resp.delivery_status})
+                const orderDataEmail = {
+                    order_id: order_id,
+                    order_status: resp.order_status,
+                    delivery_status: resp.delivery_status,
+                    pick_up_loc: resp.pick_up_loc,
+                    drop_off_loc: resp.drop_off_loc,
+                    receiver_name: resp.receiver.full_name,
+                    receiver_email: resp.receiver.email_id,
+                    item: resp.item,
+                    distance: resp.distance,
+                    time: resp.time,
+                    payment_data: resp.payment_data,
+                    subtotal: resp.subtotal,
+                    tax: resp.tax,
+                    discount: resp.discount,
+                    total_price: resp.total_price
+                  };
 
-                Pickup Location: ${resp.pick_up_loc}
-                Dropoff Location: ${resp.drop_off_loc}
-                Receiver: ${resp.receiver}
-
-                Package Details:
-                - Type: ${resp.item.name || 'N/A'}
-                ${resp.item.height_feet ? `- Height in feet: ${resp.item.height_feet}\n` : ''}
-                ${resp.item.width_feet ? `- Weight in feet: ${resp.item.width_feet}\n` : ''}
-                ${resp.item.notes ? `- NOTES: ${resp.item.notes}\n` : ''}
-
-                Delivery Info:
-                - Distance: ${resp.distance}
-                - Estimated Time: ${resp.time}
-   
-                Payment Method: ${resp.payment_data}
-
-                Payment Summary:
-                - Subtotal: $${resp.subtotal}
-                ${resp.tax ? `- Tax: $${resp.tax}\n` : ''}
-                ${resp.discount ? `- Discount: -$${resp.discount}\n` : ''}
-                - TOTAL: $${resp.total_price}
-
-                Thank you for choosing Cargo Rider!`;
+                
                 const email = user[0].email_id;
                 
                 try {
-                    await common.sendMail(subject, email, message);
+                    const htmlMessage = orderConfirmationEmail(orderDataEmail)
+                    await common.sendMail(subject, email, htmlMessage);
                     console.log("Order email sent successfully!");
                 } catch (error) {
                     console.error("Error sending OTP email:", error);
@@ -896,6 +891,24 @@ class userModel{
 
                 const insertContact = `INSERT INTO tbl_contact_us SET ?`;
                 const [contactInsert] = await database.query(insertContact, [data]);
+
+                const subject = `Thank you for contacting us!`;
+                const email = request_data.email_address;
+
+                const contact_data = {
+                    name: request_data.full_name,
+                    email: request_data.email_address
+                }
+                console.log(contact_data.email);
+
+                try {
+                    const htmlMessage = contactUs(contact_data);
+                    await common.sendMail(subject, email, htmlMessage);
+                    console.log("Contact us Email Sent Success");
+                } catch (error) {
+                    console.error("Error sending Contact Us email:", error);
+                }
+
 
                 return callback(common.encrypt({
                     code: response_code.SUCCESS,
